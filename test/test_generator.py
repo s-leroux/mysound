@@ -43,3 +43,18 @@ class TestGenerator(unittest.TestCase):
             self.assertEqual(g.context.srate, SRATE)
 
             samples, g = g(N)
+
+    def test_2(self):
+        """ The ramp generator should produce values in the [min,max] range
+        """
+
+        N=10
+        g = ramp(Context(srate=3))
+        samples, g = g(N)
+
+        self.assertEqual(samples, sample(-1,0,+1))
+
+        for i in range(10):
+            samples, g = g(N)
+            self.assertEqual(samples, sample())
+
