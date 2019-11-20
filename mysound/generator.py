@@ -10,6 +10,8 @@
 
 from array import array
 
+from mysound.time import to_samples, seconds
+
 MIN = -1.0
 MAX = 1.0
 ZERO = 0.0
@@ -39,14 +41,15 @@ def constant(context, v):
 
     return y(context, generator)
 
-def ramp(context, duration=1, start=MIN, stop=MAX):
+def ramp(ctx, duration=seconds(1), start=MIN, stop=MAX):
     """ Return a genertor that walks up through the [from, to] range
-        (inclusive) in _duration_. The duration is expressed in seconds.
+        (inclusive) in _duration_. The duration is expressed in samples
+        or using any of the `mysound.time` formats.
 
         The actual number of samples in a ramp is dependant of the
         `context.srate`
     """
-    count = duration * context.srate
+    count = to_samples(ctx, duration)
     amplitude = float(stop-start)
 
     def y(start, amplitude, acc, count):

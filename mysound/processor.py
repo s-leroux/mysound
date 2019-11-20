@@ -5,7 +5,7 @@
     it on several channels or mixing several channels together
 """
 
-def loop(ctx, signal):
+def loop(signal):
     """ A processor that repeats forever the same signal
     """
     def y(curr):

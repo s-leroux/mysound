@@ -3,6 +3,7 @@ import unittest
 from mysound.context import Context
 from mysound.generator import ramp, sample
 from mysound.processor import loop
+from mysound.time import seconds
 
 import random
 
@@ -11,8 +12,8 @@ class ProcessorTest(unittest.TestCase):
         """ The loop processor should repeat the same signal
         """
         ctx = Context(srate=3)
-        r = ramp(ctx, 1)
-        l = loop(ctx, r)
+        r = ramp(ctx, seconds(1))
+        l = loop(r)
 
         for i in range(20):
             samples, l = l(random.randint(3,10))
