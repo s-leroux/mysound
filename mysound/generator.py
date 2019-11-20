@@ -14,18 +14,21 @@ MIN = -1.0
 MAX = 1.0
 ZERO = 0.0
 
-def y(f):
-    return lambda *args : (f(*args), y(f))
+def y(context, f):
+    r = lambda *args : (f(*args), y(context, f))
+    r.context = context
+
+    return r
 
 def sample(v):
     return array('f', [v])
 
-def silence():
+def silence(context):
     """ Return a generator producing an infinite amount of silence
     """
-    return constant(ZERO)
+    return constant(context, ZERO)
 
-def constant(v):
+def constant(context, v):
     """ Return a generator producing an infinite stream of samples
         with the same value
     """
@@ -34,5 +37,5 @@ def constant(v):
     def generator(n):
         return buffer[:n] 
 
-    return y(generator)
+    return y(context, generator)
 
