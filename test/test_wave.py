@@ -22,4 +22,6 @@ class TestWaveReader(unittest.TestCase):
         """ WaveReader can read valid wave files
         """
         for f in WAVEFILES:
-            wav = WaveReader.fromFile(f)
+            for chunk in WaveReader.fromFile(f):
+                pass
+            print(chunk)

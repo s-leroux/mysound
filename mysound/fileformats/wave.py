@@ -57,7 +57,7 @@ MONO=1
 def SWP24(seq):
     return ((int.from_bytes(i, 'little') for i in block) for block in seq)
 
-_PCM_FLOAT32 = struct.Struct("<"+FLOAT32) 
+_PCM_FLOAT32 = struct.Struct("<"+FLOAT32)
 
 import itertools
 def PCM_FLOAT32(buffer, nchannels):
@@ -65,7 +65,7 @@ def PCM_FLOAT32(buffer, nchannels):
     channel = itertools.cycle(channels)
     for n, in _PCM_FLOAT32.iter_unpack(buffer):
         next(channel).append(n)
-    
+
     return channels
 
 def PCM_INT8(buffer, nchannels):
@@ -75,11 +75,11 @@ def PCM_INT8(buffer, nchannels):
         for c in channels:
             c.append((ifb(buffer[n:n+1], 'little')-128)/128)
             n+=1
-    
+
     return channels
 
 #
-# According to http://blog.bjornroche.com/2009/12/int-float-int-its-jungle-out-there.html 
+# According to http://blog.bjornroche.com/2009/12/int-float-int-its-jungle-out-there.html
 # there is no well defined standard for int -> flot conversion
 #
 # It more important though that 0 -> 0.0 rather than using the full [-1;+1] range
@@ -93,7 +93,7 @@ def PCM_SIGNED_INT(buffer, bytesperchannel, nchannels):
         for c in channels:
             c.append(ifb(buffer[n:n+bytesperchannel], 'little')/amplitude)
             n+=bytesperchannel
-    
+
     return channels
 
 def PCM_INT8_MONO(buffer):
@@ -140,7 +140,7 @@ FORMATS={
 }
 
 class WaveReader:
-    def __init__(self, stream):
+    def __init__(self):
         self.state = SimpleNamespace()
         self.state.format = None
         self.state.nsamplespersec = None
@@ -148,17 +148,19 @@ class WaveReader:
         self.state.wbitspersample = None
         self.state.nblockalign = None
 
+    def read(self, stream):
         self.readWaveHeader(stream)
         while True:
             ck = self.readNextChunk(stream)
             if ck is None:
                 # end of stream
                 break
+            elif ck:
+                yield from ck
 
         print(self.state)
         f = FORMATS.get((self.state.format, self.state.nblockalign, self.state.wbitspersample, self.state.nchannels), "?")
         print(stream, f)
-        
 
     def assertTrue(self, test, msg, *args):
         if not test:
@@ -167,7 +169,7 @@ class WaveReader:
     @classmethod
     def fromFile(cls, path):
         with open(path, "rb") as f:
-            return cls(f)
+            yield from cls().read(f)
 
     def readWaveHeader(self, stream):
         magick = stream.read(4)
@@ -176,7 +178,7 @@ class WaveReader:
         header = READER[magick](stream)
         if header.WAVEID != b"WAVE":
             raise TypeError("{} does not seem to be a valid WAV file".format(stream))
-        
+
 
     def readNextChunk(self, stream):
         ckID = stream.read(4)
@@ -191,9 +193,7 @@ class WaveReader:
 
         ckHandler = self.chunkHandlers.get(ckID, self.__class__.handleUnknownChunk)
         print(ckID, ckHandler)
-        ckHandler(self, stream, ckID, cksize)
-
-        return True
+        return ckHandler(self, stream, ckID, cksize) or False
 
     def handleUnknownChunk(self, stream, ckID, cksize):
         # skip without requiring the steam to support ftell/fseek operations
@@ -201,7 +201,7 @@ class WaveReader:
             garbage = stream.read(min(cksize, 4096))
             consumed = len(garbage)
             self.assertTrue(consumed, "Premature end of the WAV file")
-                
+
             cksize -= consumed
 
     def handlefmt_Chunk(self, stream, ckID, cksize):
@@ -236,7 +236,7 @@ class WaveReader:
 
         chunk40 = READER[b'fmt 40'](stream)
         self.state.format = chunk40.wFormatTag
-    
+
     def handledataChunk(self, stream, ckID, cksize):
         fmt = FORMATS[self.state.format, self.state.nblockalign, self.state.wbitspersample, self.state.nchannels]
         nChannels = self.state.nchannels
@@ -249,13 +249,11 @@ class WaveReader:
                   break
 
               cksize -= len(buffer)
-              samples = fmt(buffer)
-
-        print(list(samples))
+              yield fmt(buffer)
 
         self.assertTrue(cksize == 0, 'Premature end of file')
 
-    chunkHandlers = { 
+    chunkHandlers = {
         b'fmt ': handlefmt_Chunk,
         b'data': handledataChunk,
     }
