@@ -6,11 +6,17 @@
 import struct
 
 from collections import namedtuple
+from types import SimpleNamespace
+from array import array
 
+INT8 = 'B'
 INT32 = 'I'
 INT16 = 'H'
+CHAR3 = '3s'
 CHAR4 = '4s'
 CHAR14 = '14s'
+
+FLOAT32 = 'f'
 
 CHUNKS = {
   b"RIFF": (
@@ -31,8 +37,8 @@ CHUNKS = {
   b"fmt 40": (
     ( 'wValidBitsPerSample', INT16 ),
     ( 'dwChannelMask', INT32 ),
-    ( 'SubFormat_0', INT16 ),
-    ( 'SubFormat_1', CHAR14 ),
+    ( 'wFormatTag', INT16 ),
+    ( 'SubFormat', CHAR14 ),
   ),
 }
 
@@ -41,14 +47,111 @@ PARSER={ k: struct.Struct("".join(("<", *tuple(zip(*fields))[1]))) for k, fields
 NTUPLE={ k: namedtuple("_", tuple(zip(*fields))[0]) for k, fields in CHUNKS.items() }
 READER={ k: lambda f, k=k : NTUPLE[k](*PARSER[k].unpack(f.read(PARSER[k].size))) for k in CHUNKS }
 
+WAVE_FORMAT_PCM = 0x0001
+WAVE_FORMAT_IEEE_FLOAT = 0x0003
+
+STEREO=2
+MONO=1
+
+
+def SWP24(seq):
+    return ((int.from_bytes(i, 'little') for i in block) for block in seq)
+
+_PCM_FLOAT32 = struct.Struct("<"+FLOAT32) 
+
+import itertools
+def PCM_FLOAT32(buffer, nchannels):
+    channels = [array('f') for _ in range(nchannels)]
+    channel = itertools.cycle(channels)
+    for n, in _PCM_FLOAT32.iter_unpack(buffer):
+        next(channel).append(n)
+    
+    return channels
+
+def PCM_INT8(buffer, nchannels):
+    channels = [array('f') for _ in range(nchannels)]
+    ifb = int.from_bytes
+    for n in range(0, len(buffer), nchannels):
+        for c in channels:
+            c.append(ifb(buffer[n:n+1], 'little')/127.5-1.0)
+            n+=1
+    
+    return channels
+
+def PCM_SIGNED_INT(buffer, bytesperchannel, nchannels):
+    channels = [array('f') for _ in range(nchannels)]
+    amplitude = ((1<<bytesperchannel)-1)/2
+    ifb = int.from_bytes
+    for n in range(0, len(buffer), nchannels*bytesperchannel):
+        for c in channels:
+            c.append((ifb(buffer[n:n+bytesperchannel], 'little')+0.5)/amplitude)
+            n+=bytesperchannel
+    
+    return channels
+
+def PCM_INT8_MONO(buffer):
+    return PCM_INT8(buffer, 1)
+
+def PCM_INT8_STEREO(buffer):
+    return PCM_INT8(buffer, 2)
+
+def PCM_INT16_MONO(buffer):
+    return PCM_SIGNED_INT(buffer, 2, 1)
+
+def PCM_INT16_STEREO(buffer):
+    return PCM_SIGNED_INT(buffer, 2, 2)
+
+def PCM_INT24_MONO(buffer):
+    return PCM_SIGNED_INT(buffer, 3, 1)
+
+def PCM_INT24_STEREO(buffer):
+    return PCM_SIGNED_INT(buffer, 3, 2)
+
+def PCM_INT32_MONO(buffer):
+    return PCM_SIGNED_INT(buffer, 4, 1)
+
+def PCM_INT32_STEREO(buffer):
+    return PCM_SIGNED_INT(buffer, 4, 2)
+
+def PCM_FLOAT32_MONO(buffer):
+    return PCM_FLOAT32(buffer, 1)
+
+def PCM_FLOAT32_STEREO(buffer):
+    return PCM_FLOAT32(buffer, 2)
+
+FORMATS={
+    (WAVE_FORMAT_PCM, 1, 8, MONO): PCM_INT8_MONO,
+    (WAVE_FORMAT_PCM, 2, 8, STEREO): PCM_INT8_STEREO,
+    (WAVE_FORMAT_PCM, 2, 16, MONO): PCM_INT16_MONO,
+    (WAVE_FORMAT_PCM, 4, 16, STEREO): PCM_INT16_STEREO,
+    (WAVE_FORMAT_PCM, 3, 24, MONO): PCM_INT24_MONO,
+    (WAVE_FORMAT_PCM, 6, 24, STEREO): PCM_INT24_STEREO,
+    (WAVE_FORMAT_PCM, 4, 32, MONO): PCM_INT32_MONO,
+    (WAVE_FORMAT_PCM, 8, 32, STEREO): PCM_INT32_STEREO,
+    (WAVE_FORMAT_IEEE_FLOAT, 4, 32, MONO): PCM_FLOAT32_MONO,
+    (WAVE_FORMAT_IEEE_FLOAT, 8, 32, STEREO): PCM_FLOAT32_STEREO,
+}
+
 class WaveReader:
     def __init__(self, stream):
+        self.state = SimpleNamespace()
+        self.state.format = None
+        self.state.nsamplespersec = None
+        self.state.nchannels = None
+        self.state.wbitspersample = None
+        self.state.nblockalign = None
+
         self.readWaveHeader(stream)
         while True:
             ck = self.readNextChunk(stream)
             if ck is None:
                 # end of stream
                 break
+
+        print(self.state)
+        f = FORMATS.get((self.state.format, self.state.nblockalign, self.state.wbitspersample, self.state.nchannels), "?")
+        print(stream, f)
+        
 
     def assertTrue(self, test, msg, *args):
         if not test:
@@ -80,10 +183,10 @@ class WaveReader:
         cksize = int.from_bytes(cksize, 'little')
 
         ckHandler = self.chunkHandlers.get(ckID, self.__class__.handleUnknownChunk)
-        if ckHandler == b'DATA':
-            return stream, cksize # yield?
-        else:
-            ckHandler(self, stream, ckID, cksize)
+        print(ckID, ckHandler)
+        ckHandler(self, stream, ckID, cksize)
+
+        return True
 
     def handleUnknownChunk(self, stream, ckID, cksize):
         # skip without requiring the steam to support ftell/fseek operations
@@ -107,21 +210,47 @@ class WaveReader:
 
     def handlefmt_16Chunk(self, stream, ckID, cksize):
         chunk16 = READER[b'fmt 16'](stream)
+        self.state.format = chunk16.wFormatTag
+        self.state.nchannels = chunk16.nChannels
+        self.state.nsamplespersec = chunk16.nSamplesPerSec
+        self.state.nblockalign = chunk16.nBlockAlign
+        self.state.wbitspersample = chunk16.wBitsPerSample
 
-    def handlefmt_18Chunk(self, stream, cksize):
-        chunk16 = READER[b'fmt 16'](stream)
+
+    def handlefmt_18Chunk(self, stream, ckID, cksize):
+        self.handlefmt_16Chunk(stream, ckID, cksize)
         chunk18 = READER[b'fmt 18'](stream)
         self.assertTrue(chunk18.cbSize == 0, "Bad data in fmt 18 chunk")
 
     def handlefmt_40Chunk(self, stream, ckID, cksize):
-        chunk16 = READER[b'fmt 16'](stream)
+        self.handlefmt_16Chunk(stream, ckID, cksize)
         chunk18 = READER[b'fmt 18'](stream)
         self.assertTrue(chunk18.cbSize == 22, "Bad data in fmt 40 chunk")
+
         chunk40 = READER[b'fmt 40'](stream)
-        
+        self.state.format = chunk40.wFormatTag
+    
+    def handledataChunk(self, stream, ckID, cksize):
+        fmt = FORMATS[self.state.format, self.state.nblockalign, self.state.wbitspersample, self.state.nchannels]
+        nChannels = self.state.nchannels
+        maxBufferSize = 4*self.state.nblockalign
+
+        while cksize:
+              count = min(cksize, maxBufferSize)
+              buffer = stream.read(count)
+              if not buffer:
+                  break
+
+              cksize -= len(buffer)
+              samples = fmt(buffer)
+
+        print(list(samples))
+
+        self.assertTrue(cksize == 0, 'Premature end of file')
 
     chunkHandlers = { 
         b'fmt ': handlefmt_Chunk,
+        b'data': handledataChunk,
     }
 
 
