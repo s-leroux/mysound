@@ -73,18 +73,25 @@ def PCM_INT8(buffer, nchannels):
     ifb = int.from_bytes
     for n in range(0, len(buffer), nchannels):
         for c in channels:
-            c.append(ifb(buffer[n:n+1], 'little')/127.5-1.0)
+            c.append((ifb(buffer[n:n+1], 'little')-128)/128)
             n+=1
     
     return channels
 
+#
+# According to http://blog.bjornroche.com/2009/12/int-float-int-its-jungle-out-there.html 
+# there is no well defined standard for int -> flot conversion
+#
+# It more important though that 0 -> 0.0 rather than using the full [-1;+1] range
+# A simple `/ 0x8000` (for 16 bits) is the choice made by ALSA I will follow here
+#
 def PCM_SIGNED_INT(buffer, bytesperchannel, nchannels):
     channels = [array('f') for _ in range(nchannels)]
-    amplitude = ((1<<bytesperchannel)-1)/2
+    amplitude = (1<<bytesperchannel-1)
     ifb = int.from_bytes
     for n in range(0, len(buffer), nchannels*bytesperchannel):
         for c in channels:
-            c.append((ifb(buffer[n:n+bytesperchannel], 'little')+0.5)/amplitude)
+            c.append(ifb(buffer[n:n+bytesperchannel], 'little')/amplitude)
             n+=bytesperchannel
     
     return channels
