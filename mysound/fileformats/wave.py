@@ -143,7 +143,7 @@ DECODERS={
     (WAVE_FORMAT_IEEE_FLOAT, 8, 32, STEREO): IEEE_FLOAT32_STEREO_DECODER,
 }
 
-class WaveReader:
+class Reader:
     def __init__(self, stream):
         self.stream = stream
         self.state = SimpleNamespace()
@@ -170,13 +170,13 @@ class WaveReader:
     def __exit__(self, *args):
         self.close()
 
+    @property
+    def srate(self):
+        return self.state.nSamplesPerSec
+
     def assertTrue(self, test, msg, *args):
         if not test:
             raise TypeError(msg.format(args))
-
-    @classmethod
-    def fromFile(cls, path):
-        return cls(open(path, "rb"))
 
     def readWaveHeader(self, stream):
         magick = stream.read(4)
@@ -311,7 +311,7 @@ def PCM_INT24_ENCODER(stream, samples):
 def PCM_INT32_ENCODER(stream, samples):
     return PCM_SIGNED_INT_ENCODER(stream, samples, 4)
 
-class WaveWriter:
+class Writer:
     """ A class to write Wav files
     """
     def __init__(self, stream, format, nSamplesPerSec, wBitsPerSample, nChannels):
@@ -400,15 +400,10 @@ class WaveWriter:
         self.data_start = self.data_end = self.stream.tell()
 
 ENCODERS ={
-    (WAVE_FORMAT_PCM, 8): (PCM_INT8_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt16, WaveWriter.write_data),
-    (WAVE_FORMAT_PCM, 16): (PCM_INT16_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt16, WaveWriter.write_data),
-    (WAVE_FORMAT_PCM, 24): (PCM_INT24_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt40, WaveWriter.write_fact, WaveWriter.write_data),
-    (WAVE_FORMAT_PCM, 32): (PCM_INT32_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt40, WaveWriter.write_fact, WaveWriter.write_data),
-    (WAVE_FORMAT_IEEE_FLOAT, 32): (IEEE_FLOAT32_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt40, WaveWriter.write_fact, WaveWriter.write_data),
+    (WAVE_FORMAT_PCM, 8): (PCM_INT8_ENCODER, Writer.write_header, Writer.write_fmt16, Writer.write_data),
+    (WAVE_FORMAT_PCM, 16): (PCM_INT16_ENCODER, Writer.write_header, Writer.write_fmt16, Writer.write_data),
+    (WAVE_FORMAT_PCM, 24): (PCM_INT24_ENCODER, Writer.write_header, Writer.write_fmt40, Writer.write_fact, Writer.write_data),
+    (WAVE_FORMAT_PCM, 32): (PCM_INT32_ENCODER, Writer.write_header, Writer.write_fmt40, Writer.write_fact, Writer.write_data),
+    (WAVE_FORMAT_IEEE_FLOAT, 32): (IEEE_FLOAT32_ENCODER, Writer.write_header, Writer.write_fmt40, Writer.write_fact, Writer.write_data),
 }
-
-
-def reader(fname):
-    wav = WaveReader.fromFile(fname)
-
 

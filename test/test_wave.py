@@ -2,7 +2,7 @@ import unittest
 
 import os.path
 
-from mysound.fileformats.wave import WaveReader, WaveWriter, WAVE_FORMAT_PCM, WAVE_FORMAT_IEEE_FLOAT
+from mysound.fileformats.wave import Reader, Writer, WAVE_FORMAT_PCM, WAVE_FORMAT_IEEE_FLOAT
 
 WAVEFILES = [os.path.join('.', 'test', 'data', fname) for fname in (
     'ieee_float32_1.wav',
@@ -24,7 +24,7 @@ class TestWaveReader(unittest.TestCase):
         """ WaveReader can read valid wave files
         """
         for f in WAVEFILES:
-            with WaveReader.fromFile(f) as wav:
+            with Reader(open(f, "rb")) as wav:
                 while True:
                     chunk = wav.read(256)
                     if not chunk:
@@ -40,12 +40,12 @@ class TestWaveWriter(unittest.TestCase):
         for nChannels in (1,2):
             for nBits in (8, 16, 24, 32):
                 with open(TMP_FILE.format('pcm', nBits, nChannels), 'wb') as f:
-                    wav = WaveWriter(f, WAVE_FORMAT_PCM, 48000, nBits, nChannels)
+                    wav = Writer(f, WAVE_FORMAT_PCM, 48000, nBits, nChannels)
                     wav.write(samples*nChannels)
                     wav.close()
         for nChannels in (1,2):
             for nBits in (32,):
                 with open(TMP_FILE.format('float', nBits, nChannels), 'wb') as f:
-                    wav = WaveWriter(f, WAVE_FORMAT_IEEE_FLOAT, 48000, nBits, nChannels)
+                    wav = Writer(f, WAVE_FORMAT_IEEE_FLOAT, 48000, nBits, nChannels)
                     wav.write(samples*nChannels)
                     wav.close()
