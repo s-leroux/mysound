@@ -144,7 +144,8 @@ DECODERS={
 }
 
 class WaveReader:
-    def __init__(self):
+    def __init__(self, stream):
+        self.stream = stream
         self.state = SimpleNamespace()
         self.state.format = None
         self.state.nSamplesPerSec = None
@@ -152,19 +153,22 @@ class WaveReader:
         self.state.wBitsPerSample = None
         self.state.nBlockAlign = None
 
-    def read(self, stream):
         self.readWaveHeader(stream)
         while True:
             ck = self.readNextChunk(stream)
-            if ck is None:
-                # end of stream
+            if ck == b'data':
                 break
-            elif ck:
-                yield from ck
+        else:
+            raise TypeError("Data chunk not found")
 
-        print(self.state)
-        f = DECODERS.get((self.state.format, self.state.nBlockAlign, self.state.wBitsPerSample, self.state.nChannels), "?")
-        print(stream, f)
+    def close(self):
+        self.stream.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def assertTrue(self, test, msg, *args):
         if not test:
@@ -172,8 +176,7 @@ class WaveReader:
 
     @classmethod
     def fromFile(cls, path):
-        with open(path, "rb") as f:
-            yield from cls().read(f)
+        return cls(open(path, "rb"))
 
     def readWaveHeader(self, stream):
         magick = stream.read(4)
@@ -197,7 +200,8 @@ class WaveReader:
 
         ckHandler = self.chunkHandlers.get(ckID, self.__class__.handleUnknownChunk)
         print(ckID, ckHandler)
-        return ckHandler(self, stream, ckID, cksize) or False
+        ckHandler(self, stream, ckID, cksize)
+        return ckID
 
     def handleUnknownChunk(self, stream, ckID, cksize):
         # skip without requiring the steam to support ftell/fseek operations
@@ -242,20 +246,24 @@ class WaveReader:
         self.state.format = chunk40.wFormatTag
 
     def handledataChunk(self, stream, ckID, cksize):
-        fmt = DECODERS[self.state.format, self.state.nBlockAlign, self.state.wBitsPerSample, self.state.nChannels]
+        self.decoder = DECODERS[self.state.format, self.state.nBlockAlign, self.state.wBitsPerSample, self.state.nChannels]
+        self.nDataSamples = cksize//self.state.nBlockAlign
+
+    def read(self, count):
+        """ Read count samples from the data chunk
+        """
         nChannels = self.state.nChannels
         maxBufferSize = 4*self.state.nBlockAlign
 
-        while cksize:
-              count = min(cksize, maxBufferSize)
-              buffer = stream.read(count)
-              if not buffer:
-                  break
+        count = min(count, self.nDataSamples)
+        if not count:
+            return None
 
-              cksize -= len(buffer)
-              yield fmt(buffer)
+        buffer = self.stream.read(count*self.state.nBlockAlign)
 
-        self.assertTrue(cksize == 0, 'Premature end of file')
+        self.nDataSamples -= count
+
+        return self.decoder(buffer)
 
     chunkHandlers = {
         b'fmt ': handlefmt_Chunk,
@@ -400,7 +408,7 @@ ENCODERS ={
 }
 
 
+def reader(fname):
+    wav = WaveReader.fromFile(fname)
 
 
-def reader():
-    pass
