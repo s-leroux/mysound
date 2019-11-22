@@ -61,13 +61,13 @@ READER={ k: lambda f, k=k : NTUPLE[k](*PARSER[k].unpack(f.read(PARSER[k].size)))
 def SWP24(seq):
     return ((int.from_bytes(i, 'little') for i in block) for block in seq)
 
-_PCM_FLOAT32 = struct.Struct("<"+FLOAT32)
+_IEEE_FLOAT32 = struct.Struct("<"+FLOAT32)
 
 import itertools
-def PCM_FLOAT32_DECODER(buffer, nChannels):
+def IEEE_FLOAT32_DECODER(buffer, nChannels):
     channels = [array('f') for _ in range(nChannels)]
     channel = itertools.cycle(channels)
-    for n, in _PCM_FLOAT32.iter_unpack(buffer):
+    for n, in _IEEE_FLOAT32.iter_unpack(buffer):
         next(channel).append(n)
 
     return channels
@@ -124,11 +124,11 @@ def PCM_INT32_MONO_DECODER(buffer):
 def PCM_INT32_STEREO_DECODER(buffer):
     return PCM_SIGNED_INT_DECODER(buffer, 4, 2)
 
-def PCM_FLOAT32_MONO_DECODER(buffer):
-    return PCM_FLOAT32_DECODER(buffer, 1)
+def IEEE_FLOAT32_MONO_DECODER(buffer):
+    return IEEE_FLOAT32_DECODER(buffer, 1)
 
-def PCM_FLOAT32_STEREO_DECODER(buffer):
-    return PCM_FLOAT32_DECODER(buffer, 2)
+def IEEE_FLOAT32_STEREO_DECODER(buffer):
+    return IEEE_FLOAT32_DECODER(buffer, 2)
 
 DECODERS={
     (WAVE_FORMAT_PCM, 1, 8, MONO): PCM_INT8_MONO_DECODER,
@@ -139,8 +139,8 @@ DECODERS={
     (WAVE_FORMAT_PCM, 6, 24, STEREO): PCM_INT24_STEREO_DECODER,
     (WAVE_FORMAT_PCM, 4, 32, MONO): PCM_INT32_MONO_DECODER,
     (WAVE_FORMAT_PCM, 8, 32, STEREO): PCM_INT32_STEREO_DECODER,
-    (WAVE_FORMAT_IEEE_FLOAT, 4, 32, MONO): PCM_FLOAT32_MONO_DECODER,
-    (WAVE_FORMAT_IEEE_FLOAT, 8, 32, STEREO): PCM_FLOAT32_STEREO_DECODER,
+    (WAVE_FORMAT_IEEE_FLOAT, 4, 32, MONO): IEEE_FLOAT32_MONO_DECODER,
+    (WAVE_FORMAT_IEEE_FLOAT, 8, 32, STEREO): IEEE_FLOAT32_STEREO_DECODER,
 }
 
 class WaveReader:
@@ -269,6 +269,13 @@ def clip(mn, v, mx):
         return mx
     return v
 
+def IEEE_FLOAT32_ENCODER(stream, samples):
+    _int = int
+    _clip = clip
+
+    for data in itertools.chain(*zip(*samples)):
+        stream.write(_IEEE_FLOAT32.pack(data))
+
 def PCM_INT8_ENCODER(stream, samples):
     _int = int
     _clip = clip
@@ -373,7 +380,7 @@ class WaveWriter:
         self.stream.write(b'fact')
         self.stream.write((4).to_bytes(4, 'little'))
 
-        self.cleanup.append((self.stream.tell(), lambda self : (self.data_end-self.data_start)//self.state.nChannels))
+        self.cleanup.append((self.stream.tell(), lambda self : (self.data_end-self.data_start)//(self.state.nChannels*self.state.nBlockAlign)))
         self.stream.write(b'\x00\x00\x00\x00')
 
     def write_data(self):
@@ -389,8 +396,7 @@ ENCODERS ={
     (WAVE_FORMAT_PCM, 16): (PCM_INT16_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt16, WaveWriter.write_data),
     (WAVE_FORMAT_PCM, 24): (PCM_INT24_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt40, WaveWriter.write_fact, WaveWriter.write_data),
     (WAVE_FORMAT_PCM, 32): (PCM_INT32_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt40, WaveWriter.write_fact, WaveWriter.write_data),
-#    (WAVE_FORMAT_IEEE_FLOAT, 32, MONO): (WaveWriterPCM_FLOAT32_MONO_ENCODER,
-#    (WAVE_FORMAT_IEEE_FLOAT, 32, STEREO): PCM_FLOAT32_STEREO_ENCODER,
+    (WAVE_FORMAT_IEEE_FLOAT, 32): (IEEE_FLOAT32_ENCODER, WaveWriter.write_header, WaveWriter.write_fmt40, WaveWriter.write_fact, WaveWriter.write_data),
 }
 
 
