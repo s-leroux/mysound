@@ -11,6 +11,7 @@
 from array import array
 
 from mysound.time import to_samples, seconds
+from mysound.fileformats import READER
 
 MIN = -1.0
 MAX = 1.0
@@ -68,3 +69,6 @@ def ramp(ctx, duration=seconds(1), start=MIN, stop=MAX):
 
     return y(float(start), amplitude, 0, count)
 
+WAVE_FILE="WAVE"
+def source(*args, format=WAVE_FILE):
+    return READER[format](*args)

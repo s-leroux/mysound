@@ -79,11 +79,30 @@ def blockReader(wav):
 
     return read
 
+def toFile(cls, ctx, *args):
+    dst = cls(*args, **ctx)
+
+    def write(src, count):
+        data, src = src(count)
+        dst.write(chunk)
+
+    def close():
+        dst.close()
+
+    return write, close
 
 READER = {}
+WRITER = {}
 for fmt in ("wave","dummy"):
     module = importlib.import_module("mysound.fileformats.{}".format(fmt))
-    READER[fmt.upper()] = lambda *args : fromFile(module.Reader, *args)
+    try:
+        reader = getattr(module, 'Reader', None)
+        writer = getattr(module, 'Writer', None)
 
-    del module
+        if reader:
+            READER[fmt.upper()] = lambda *args : fromFile(reader, *args)
+        if writer:
+            WRITER[fmt.upper()] = lambda ctx, *args : toFile(writer, *args)
+    finally:
+        del module
 
