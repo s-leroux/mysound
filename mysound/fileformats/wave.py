@@ -144,8 +144,8 @@ DECODERS={
 }
 
 class Reader:
-    def __init__(self, stream):
-        self.stream = stream
+    def __init__(self, path):
+        self.stream = open(path, 'rb')
         self.state = SimpleNamespace()
         self.state.format = None
         self.state.nSamplesPerSec = None
@@ -153,9 +153,9 @@ class Reader:
         self.state.wBitsPerSample = None
         self.state.nBlockAlign = None
 
-        self.readWaveHeader(stream)
+        self.readWaveHeader(self.stream)
         while True:
-            ck = self.readNextChunk(stream)
+            ck = self.readNextChunk(self.stream)
             if ck == b'data':
                 break
         else:
@@ -173,6 +173,10 @@ class Reader:
     @property
     def srate(self):
         return self.state.nSamplesPerSec
+
+    @property
+    def nchannels(self):
+        return self.state.nChannels
 
     def assertTrue(self, test, msg, *args):
         if not test:
@@ -199,7 +203,7 @@ class Reader:
         cksize = int.from_bytes(cksize, 'little')
 
         ckHandler = self.chunkHandlers.get(ckID, self.__class__.handleUnknownChunk)
-        print(ckID, ckHandler)
+        # print(ckID, ckHandler)
         ckHandler(self, stream, ckID, cksize)
         return ckID
 

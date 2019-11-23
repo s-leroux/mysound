@@ -2,33 +2,88 @@ import importlib
 
 from mysound.context import Context
 
-READER = {}
+def caching(reader):
+    cache = None
+    cont = None
+    loaded = False
 
-def fromFile(cls, path):
-    wav = None
-    eof = lambda : (None, eof)
-    reader = None
+    def read(count):
+        nonlocal cache, cont, loaded
 
+        if not loaded:
+            cache, cont = reader(count)
+            cont = caching(cont)
+            loaded = True
+
+        return cache, cont
+
+    return read
+
+def multichannel(count, reader):
+    def channel(n, reader, offset, cache, cont):
+        loaded = False
+
+        def read(count):
+            nonlocal cache, loaded, cont
+
+            if not loaded:
+                block, cont = reader()
+                cache = block[n] if block else []
+                loaded = True
+
+            remaining = len(cache)-offset
+            if remaining < count:
+                count = remaining
+
+            stop = offset+count
+            data = cache[offset:stop]
+
+            if count == remaining:
+                return data, channel(n, cont, 0, None, None)
+            else:
+                return data, channel(n, reader, stop, cache, cont)
+
+        return read
+
+    return [channel(n, reader, 0, None, None) for n in range(count)]
+
+def fromFile(cls, *args):
     try:
-        wav = cls(open(path, "rb"))
+        wav = cls(*args)
     except:
         wav.close()
         raise
 
-    def _reader(count):
-        data = wav.read(count)
+    return Context(srate=wav.srate), multichannel(wav.nchannels, blockReader(wav))
+
+def blockReader(wav):
+    data = None
+    cont = None
+    loaded = False
+    eof = lambda : (None, eof)
+
+    def read():
+        nonlocal data, cont, loaded
+
+        if not loaded:
+            data = wav.read(4096)
+            cont = blockReader(wav)
+            loaded = True
+            if not data:
+                wav.close()
+
         if not data:
-            wav.close()
             return eof()
-        
-        return data, reader
 
-    reader = _reader
-    return Context(srate=wav.srate), reader
+        return data, cont
 
-for fmt in ("wave",):
+    return read
+
+
+READER = {}
+for fmt in ("wave","dummy"):
     module = importlib.import_module("mysound.fileformats.{}".format(fmt))
-    READER[fmt.upper()] = lambda path : fromFile(module.Reader, path)
+    READER[fmt.upper()] = lambda *args : fromFile(module.Reader, *args)
 
     del module
 
