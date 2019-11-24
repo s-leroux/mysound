@@ -79,17 +79,16 @@ def blockReader(wav):
 
     return read
 
-def toFile(cls, ctx, *args):
-    dst = cls(*args, **ctx)
+from mysound.track import tracks
+def toFile(cls, ctx, src, *args):
+    with cls(ctx.srate, 32, len(src), *args) as dst:
+        src = tracks(*src)
+        while True:
+            data, src = src(10*1024)
+            if not data:
+                break
 
-    def write(src, count):
-        data, src = src(count)
-        dst.write(chunk)
-
-    def close():
-        dst.close()
-
-    return write, close
+            dst.write(data)
 
 READER = {}
 WRITER = {}
@@ -100,9 +99,9 @@ for fmt in ("wave","dummy"):
         writer = getattr(module, 'Writer', None)
 
         if reader:
-            READER[fmt.upper()] = lambda *args : fromFile(reader, *args)
+            READER[fmt.upper()] = (lambda reader : lambda *args : fromFile(reader, *args))(reader)
         if writer:
-            WRITER[fmt.upper()] = lambda ctx, *args : toFile(writer, *args)
+            WRITER[fmt.upper()] = (lambda writer : lambda ctx, src, *args : toFile(writer, ctx, src, *args))(writer)
     finally:
         del module
 

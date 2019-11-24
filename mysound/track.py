@@ -1,4 +1,7 @@
 
+def eof(*args):
+    return None, eof
+
 def tracks(*generators):
     """ Given a list of generators, return a function that
         can read n sample on each track simultaneously.
@@ -15,6 +18,10 @@ def tracks(*generators):
 
                 if dataLength < count:
                     count = dataLength
+
+            if count == 0:
+                # At least one stream exhausted
+                return eof()
 
             data = [ data[offset:offset+count] for offset, data, gen in gb ]
             return data, _tracks([
