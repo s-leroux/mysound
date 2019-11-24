@@ -35,16 +35,14 @@ class TestWaveWriter(unittest.TestCase):
     def test_1(self):
         """ WaveReader can read valid wave files
         """
-        samples = [ [0.0]*160800 ]
+        samples = [ [-1.0]*40200 + [0.0]*80400 + [1.0]*40200 ]
         for nChannels in (1,2):
             for nBits in (8, 16, 24, 32):
-                with open(TMP_FILE.format('pcm', nBits, nChannels), 'wb') as f:
-                    wav = Writer(f, WAVE_FORMAT_PCM, 48000, nBits, nChannels)
+                fname = TMP_FILE.format('pcm', nBits, nChannels)
+                with Writer(48000, nBits, nChannels, fname, format=WAVE_FORMAT_PCM) as wav:
                     wav.write(samples*nChannels)
-                    wav.close()
         for nChannels in (1,2):
             for nBits in (32,):
-                with open(TMP_FILE.format('float', nBits, nChannels), 'wb') as f:
-                    wav = Writer(f, WAVE_FORMAT_IEEE_FLOAT, 48000, nBits, nChannels)
+                fname = TMP_FILE.format('float', nBits, nChannels)
+                with Writer(48000, nBits, nChannels, fname, format=WAVE_FORMAT_IEEE_FLOAT) as wav:
                     wav.write(samples*nChannels)
-                    wav.close()
