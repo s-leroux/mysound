@@ -34,6 +34,7 @@ def sample(*values):
 def rawdata(data):
     """ Return  generator from rawdata.
     """
+    # XXX Should rework to accept any iterable
 
     def at(offset):
         def read(count):

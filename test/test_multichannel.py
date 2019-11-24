@@ -3,7 +3,7 @@ import unittest
 from mysound.context import Context
 from mysound.multichannel import *
 from mysound.generator import constant
-from mysound.processor import pick
+from mysound.actions import pick
 
 class TestTrack(unittest.TestCase):
     def test_1(self):
@@ -16,8 +16,8 @@ class TestTrack(unittest.TestCase):
         ch3 = constant(ctx, 2.0)
         t = mux(
             ch1,
-            pick(ctx, 20, ch2, ch3),
-            pick(ctx, 13, ch2, ch3),
+            pick(20, ch2, ch3),
+            pick(13, ch2, ch3),
         )
 
         r0 = []

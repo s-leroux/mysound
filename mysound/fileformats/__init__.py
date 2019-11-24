@@ -2,23 +2,7 @@ import importlib
 
 from mysound.context import Context
 from mysound.multichannel import mux
-
-def caching(reader):
-    cache = None
-    cont = None
-    loaded = False
-
-    def read(count):
-        nonlocal cache, cont, loaded
-
-        if not loaded:
-            cache, cont = reader(count)
-            cont = caching(cont)
-            loaded = True
-
-        return cache, cont
-
-    return read
+from mysound.actions import caching
 
 def fromFile(cls, *args):
     try:

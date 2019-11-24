@@ -99,3 +99,9 @@ _Sinks_ are the counterpart of generators. They are function taking one or
 several input channels, and consuming the samples until _at least one_ of
 the input stream is exhausted.
 
+## Actions
+Thanks to the dynamic nature of Python, some _actions_ can be performed
+independently to _channels_ and _multichannels_. For example, the `skip`
+or `trucate` action used to discard sample. You may think of _actions_ as
+higher-level utilities working similarly on 1-channel and multi-channel
+streams.
