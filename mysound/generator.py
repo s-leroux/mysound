@@ -11,7 +11,6 @@
 from array import array
 
 from mysound.time import to_samples, seconds
-from mysound.fileformats import READER
 
 MIN = -1.0
 MAX = 1.0
@@ -23,8 +22,28 @@ def y(context, f):
 
     return r
 
+def samples(values):
+    try:
+        return array('f', values)
+    except:
+        import pdb;pdb.set_trace()
+
 def sample(*values):
-    return array('f', values)
+    return samples(values)
+
+def rawdata(data):
+    """ Return  generator from rawdata.
+    """
+
+    def at(offset):
+        def read(count):
+            stop = offset+count
+            return samples(data[offset:stop]), at(stop)
+
+        return read
+
+    return at(0)
+
 
 def silence(context):
     """ Return a generator producing an infinite amount of silence
@@ -68,7 +87,3 @@ def ramp(ctx, duration=seconds(1), start=MIN, stop=MAX):
         return generator
 
     return y(float(start), amplitude, 0, count)
-
-WAVE_FILE="WAVE"
-def source(*args, format=WAVE_FILE):
-    return READER[format](*args)

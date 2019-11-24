@@ -37,27 +37,3 @@ class TestUtilities(unittest.TestCase):
             self.assertSequenceEqual(d1, self.data[0])
             self.assertSequenceEqual(d2, self.data[1])
 
-    def test_2(self):
-        src = multichannel(2, blockReader(self.file))
-        for j in range(2):
-            ch1 = src[0]
-            ch2 = src[1]
-            d1 = []
-            d2 = []
-            while True:
-                v, ch1 = ch1(3)
-                # print(v)
-                if not v:
-                    break
-
-                d1.extend(v)
-            while True:
-                v, ch2 = ch2(3)
-                # print(v)
-                if not v:
-                    break
-
-                d2.extend(v)
-
-            self.assertSequenceEqual(d1, self.data[0])
-            self.assertSequenceEqual(d2, self.data[1])

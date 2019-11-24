@@ -1,6 +1,7 @@
 import importlib
 
 from mysound.context import Context
+from mysound.multichannel import mux
 
 def caching(reader):
     cache = None
@@ -19,34 +20,6 @@ def caching(reader):
 
     return read
 
-def multichannel(count, reader):
-    def channel(n, reader, offset, cache, cont):
-        loaded = False
-
-        def read(count):
-            nonlocal cache, loaded, cont
-
-            if not loaded:
-                block, cont = reader()
-                cache = block[n] if block else []
-                loaded = True
-
-            remaining = len(cache)-offset
-            if remaining < count:
-                count = remaining
-
-            stop = offset+count
-            data = cache[offset:stop]
-
-            if count == remaining:
-                return data, channel(n, cont, 0, None, None)
-            else:
-                return data, channel(n, reader, stop, cache, cont)
-
-        return read
-
-    return [channel(n, reader, 0, None, None) for n in range(count)]
-
 def fromFile(cls, *args):
     try:
         wav = cls(*args)
@@ -54,7 +27,7 @@ def fromFile(cls, *args):
         wav.close()
         raise
 
-    return Context(srate=wav.srate), multichannel(wav.nchannels, blockReader(wav))
+    return Context(srate=wav.srate), demux(wav.nchannels, blockReader(wav))
 
 def blockReader(wav):
     data = None
@@ -79,7 +52,6 @@ def blockReader(wav):
 
     return read
 
-from mysound.track import mux
 def toFile(cls, ctx, src, *args):
     with cls(ctx.srate, 32, len(src), *args) as dst:
         src = mux(*src)
@@ -105,3 +77,6 @@ for fmt in ("wave","dummy"):
     finally:
         del module
 
+WAVE_FILE="WAVE"
+def source(*args, format=WAVE_FILE):
+    return READER[format](*args)
