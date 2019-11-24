@@ -20,3 +20,19 @@ def loop(signal):
 
     return y(signal)
 
+def pick(context, n, first, second):
+    """ Pick n samples from the first signal, then switch to the
+        second one
+    """
+
+    def generator(count):
+        if n <= 0:
+            return second(count)
+
+        if n < count:
+            count = n
+
+        data, cont = first(count)
+        return data, pick(context, n-len(data), cont, second)
+
+    return generator
