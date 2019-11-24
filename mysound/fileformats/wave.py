@@ -59,7 +59,7 @@ READER={ k: lambda f, k=k : NTUPLE[k](*PARSER[k].unpack(f.read(PARSER[k].size)))
 
 
 def SWP24(seq):
-    return ((int.from_bytes(i, 'little') for i in block) for block in seq)
+    return ((int.from_bytes(i, 'little', signed=True) for i in block) for block in seq)
 
 _IEEE_FLOAT32 = struct.Struct("<"+FLOAT32)
 
@@ -95,7 +95,7 @@ def PCM_SIGNED_INT_DECODER(buffer, bytesperchannel, nChannels):
     ifb = int.from_bytes
     for n in range(0, len(buffer), nChannels*bytesperchannel):
         for c in channels:
-            c.append(ifb(buffer[n:n+bytesperchannel], 'little')/amplitude)
+            c.append(ifb(buffer[n:n+bytesperchannel], 'little', signed=True)/amplitude)
             n+=bytesperchannel
 
     return channels
@@ -303,7 +303,7 @@ def PCM_SIGNED_INT_ENCODER(stream, samples, bytesperchannel):
     mn = int(-amp)
     mx = int(amp-1)
 
-    for data in [ _itb(_clip(mn,_int(sample*amp),mx), bytesperchannel, 'little') for sample in itertools.chain(*zip(*samples))]:
+    for data in [ _itb(_clip(mn,_int(sample*amp),mx), bytesperchannel, 'little', signed=True) for sample in itertools.chain(*zip(*samples))]:
         stream.write(data)
 
 def PCM_INT16_ENCODER(stream, samples):
@@ -318,9 +318,13 @@ def PCM_INT32_ENCODER(stream, samples):
 class Writer:
     """ A class to write Wav files
     """
-    def __init__(self, stream, format, nSamplesPerSec, wBitsPerSample, nChannels):
+    def __init__(self, nSamplesPerSec, wBitsPerSample, nChannels, path, *, format=None):
+        self.stream = open(path, 'wb')
+
+        if format is None:
+            format = WAVE_FORMAT_IEEE_FLOAT
+
         self.cleanup = []
-        self.stream = stream
         self.state = SimpleNamespace()
         self.state.format = format
         self.state.nChannels = nChannels
@@ -340,6 +344,13 @@ class Writer:
         for pos, f in self.cleanup:
             self.stream.seek(pos)
             self.stream.write(f(self).to_bytes(4, 'little'))
+        self.stream.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def write(self, samples):
         assert len(samples) == self.state.nChannels
