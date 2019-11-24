@@ -56,4 +56,3 @@ def caching(source):
         return cache, cont
 
     return read
-

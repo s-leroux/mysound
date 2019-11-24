@@ -32,7 +32,7 @@ class TestGenerator(unittest.TestCase):
             self.assertTrue(0 < len(samples) <= N)
             self.assertSequenceEqual(samples,sample(K)*N)
 
-    def test_1(self):
+    def test_2(self):
         """ Generators should share their context with the next generation
         """
         K=123.456
@@ -44,7 +44,7 @@ class TestGenerator(unittest.TestCase):
 
             samples, g = g(N)
 
-    def test_2(self):
+    def test_3(self):
         """ The ramp generator should produce values in the [min,max] range
         """
 
@@ -58,3 +58,19 @@ class TestGenerator(unittest.TestCase):
             samples, g = g(N)
             self.assertEqual(samples, sample())
 
+    def test_4(self):
+        """ The _call_ generator should produce data from an external source
+        """
+        x = 0
+        def f():
+            nonlocal x
+            x += 1
+            return x
+
+        src = call(f)
+        result = []
+        for n in range(1,5):
+            data, src = src(n)
+            result.extend(data)
+
+        self.assertEqual(result, [float(v) for v in range(1,11)])

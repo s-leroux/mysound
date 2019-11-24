@@ -45,6 +45,22 @@ def rawdata(data):
 
     return at(0)
 
+def call(fct):
+    """ Return a generator whose values are obtained by
+        repeatedly calling the given function _fct_.
+
+        This function is provided to gther data from
+        a stateful source (otherwise, if _fct_ is idempotent,
+        `constant(fct())` is more efficient).
+
+        It is caller's responsability to cache the data if
+        repeatibility is required (for example, using
+        _mysound.actions.caching_)
+    """
+    def read(n):
+        return samples([fct() for _ in range(n)]), read
+
+    return read
 
 def silence(context):
     """ Return a generator producing an infinite amount of silence
