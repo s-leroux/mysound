@@ -11,7 +11,7 @@ class TestTrack(unittest.TestCase):
         ch1 = constant(ctx, 0.5)
         ch2 = constant(ctx, 1.0)
         ch3 = constant(ctx, 2.0)
-        t = tracks(
+        t = mux(
             ch1,
             pick(ctx, 20, ch2, ch3),
             pick(ctx, 13, ch2, ch3),

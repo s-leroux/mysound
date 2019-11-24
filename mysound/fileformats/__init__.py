@@ -79,10 +79,10 @@ def blockReader(wav):
 
     return read
 
-from mysound.track import tracks
+from mysound.track import mux
 def toFile(cls, ctx, src, *args):
     with cls(ctx.srate, 32, len(src), *args) as dst:
-        src = tracks(*src)
+        src = mux(*src)
         while True:
             data, src = src(10*1024)
             if not data:
