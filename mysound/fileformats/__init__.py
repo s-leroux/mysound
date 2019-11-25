@@ -1,7 +1,7 @@
 import importlib
 
 from mysound.context import Context
-from mysound.multichannel import mux
+from mysound.multichannel import mux, demux
 from mysound.actions import caching
 
 def fromFile(cls, *args):
@@ -19,11 +19,11 @@ def blockReader(wav):
     loaded = False
     eof = lambda : (None, eof)
 
-    def read():
+    def read(count = 4096):
         nonlocal data, cont, loaded
 
         if not loaded:
-            data = wav.read(4096)
+            data = wav.read(count)
             cont = blockReader(wav)
             loaded = True
             if not data:

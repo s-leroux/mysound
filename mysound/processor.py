@@ -4,7 +4,13 @@
     Processors can do things like resampling a signal, reproducing
     it on several channels or mixing several channels together
 """
+import statistics
+
 from mysound.generator import samples
+from mysound.multichannel import mux
+
+def eof(*args):
+    return [], eof
 
 def take(count, source):
     """ Take *exactly* _count_ samples from _source_
@@ -19,3 +25,29 @@ def take(count, source):
         result.extend(data)
 
     return result, cont
+
+
+def apply(fct, *channels):
+    """ Apply a function on each samples in turn
+    """
+
+    src = mux(*channels)
+
+    def _apply(fct, src):
+        def read(n):
+            chunk, cont = src(n)
+            if not chunk:
+                return eof()
+
+            return samples(map(fct, zip(*chunk))), _apply(fct, cont)
+
+        return read
+
+    return _apply(fct, src)
+
+def mean(*channels):
+    """ Return one channel that is the arithmetic average
+        of all input channels
+    """
+    return apply(statistics.mean, *channels)
+
