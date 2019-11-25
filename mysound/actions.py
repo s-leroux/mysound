@@ -45,14 +45,21 @@ def caching(source):
     cont = None
     loaded = False
 
-    def read(count):
-        nonlocal cache, cont, loaded
+    def at(offset):
+        def read(count):
+            nonlocal cache, cont, loaded
+            if not loaded:
+                cache, cont = source(count)
+                cont = caching(cont)
+                loaded = True
 
-        if not loaded:
-            cache, cont = source(count)
-            cont = caching(cont)
-            loaded = True
+            stop = offset+count
+            if stop >= len(cache):
+                return cache[offset:], cont
 
-        return cache, cont
+            return cache[offset:stop], at(stop)
 
-    return read
+
+        return read
+
+    return at(0)

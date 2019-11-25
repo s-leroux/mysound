@@ -22,11 +22,8 @@ def y(context, f):
 
     return r
 
-def samples(values):
-    try:
-        return array('f', values)
-    except:
-        import pdb;pdb.set_trace()
+def samples(values=()):
+    return array('f', values)
 
 def sample(*values):
     return samples(values)

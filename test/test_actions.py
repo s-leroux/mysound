@@ -1,8 +1,9 @@
 import unittest
 
-from random import randint
+from random import randint, uniform
 
-from mysound.generator import rawdata
+from mysound.generator import rawdata, call
+from mysound.processor import take
 
 from mysound.actions import *
 
@@ -38,4 +39,17 @@ class TestActions(unittest.TestCase):
             result.extend(data)
 
         self.assertEqual(result, [1.0]*5 + [0.5]*10)
+
+    def test_3(self):
+        """ Caching should ensure repeatability
+        """
+        src = caching(call(lambda : uniform(-1.0,1.0)))
+
+        d11, cont = take(10, src)
+        d12, cont = take(90, cont)
+
+        d21, cont = take(90, src)
+        d22, cont = take(10, cont)
+
+        self.assertSequenceEqual(d11+d12, d21+d22)
 
